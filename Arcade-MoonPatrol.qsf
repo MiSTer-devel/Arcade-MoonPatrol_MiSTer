@@ -355,7 +355,7 @@ set_global_assignment -name VHDL_SHOW_LMF_MAPPING_MESSAGES OFF
 
 set_global_assignment -name CDF_FILE jtag.cdf
 set_global_assignment -name QIP_FILE sys/sys.qip
-set_global_assignment -name QIP_FILE sys/vip.qip
+set_global_assignment -name QSYS_FILE sys/vip.qsys
 set_global_assignment -name VHDL_FILE cpu/Z80.vhd
 set_global_assignment -name VHDL_FILE cpu/T80se.vhd
 set_global_assignment -name VHDL_FILE cpu/T80_Reg.vhd
