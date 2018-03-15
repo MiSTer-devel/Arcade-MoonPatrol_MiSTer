@@ -9,16 +9,16 @@ use work.project_pkg.all;
 package platform_pkg is
 
 	
-	constant PACE_VIDEO_NUM_BITMAPS		    : natural := 3;
+	constant PACE_VIDEO_NUM_BITMAPS		 : natural := 3;
 	constant PACE_VIDEO_NUM_TILEMAPS	    : natural := 1;
 	constant PACE_VIDEO_NUM_SPRITES 	    : natural := 64;
-	constant PACE_VIDEO_H_SIZE				    : integer := 256;
-	constant PACE_VIDEO_V_SIZE				    : integer := 256;
-	constant PACE_VIDEO_L_CROP            : integer := 4;
-	constant PACE_VIDEO_R_CROP            : integer := 8;
+	constant PACE_VIDEO_H_SIZE				 : integer := 256;
+	constant PACE_VIDEO_V_SIZE				 : integer := 256;
+	constant PACE_VIDEO_L_CROP           : integer := 6;
+	constant PACE_VIDEO_R_CROP           : integer := 8;
   constant PACE_VIDEO_PIPELINE_DELAY    : integer := 7;
 	
-	constant PACE_INPUTS_NUM_BYTES        : integer := 6;
+	constant PACE_INPUTS_NUM_BYTES       : integer := 6;
 	
 	--
 	-- Platform-specific constants (optional)

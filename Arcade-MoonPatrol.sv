@@ -89,6 +89,7 @@ localparam CONF_STR = {
 	"A.MOONPT;;",
 	"-;",
 	"O1,Aspect Ratio,Original,Wide;",
+	"O34,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%;",
 	"-;",
 	"-;",
 	"T6,Reset;",
@@ -126,6 +127,8 @@ wire [10:0] ps2_key;
 wire [15:0] joystick_0, joystick_1;
 wire [15:0] joy = joystick_0 | joystick_1;
 
+wire        forced_scandoubler;
+
 hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 (
 	.clk_sys(clk_sys),
@@ -135,6 +138,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
 	.buttons(buttons),
 	.status(status),
+	.forced_scandoubler(forced_scandoubler),
 
 	.ioctl_download(ioctl_download),
 	.ioctl_wr(ioctl_wr),
@@ -184,20 +188,7 @@ wire m_jump   = btn_jump | joy[5];
 wire m_start1 = btn_one_player  | joy[6];
 wire m_coin   = m_start1;
 
-wire hblank, vblank;
-wire ce_vid = 1;
-wire hs, vs;
-wire [3:0] r,g,b;
-
 assign VGA_CLK  = clk_vid;
-assign VGA_CE   = ce_vid;
-assign VGA_R    = {r,r};
-assign VGA_G    = {g,g};
-assign VGA_B    = {b,b};
-assign VGA_DE   = ~(hblank | vblank);
-assign VGA_HS   = hs;
-assign VGA_VS   = vs;
-
 assign HDMI_CLK = VGA_CLK;
 assign HDMI_CE  = VGA_CE;
 assign HDMI_R   = VGA_R;
@@ -207,6 +198,39 @@ assign HDMI_DE  = VGA_DE;
 assign HDMI_HS  = VGA_HS;
 assign HDMI_VS  = VGA_VS;
 assign HDMI_SL  = 0;
+
+wire HSync, VSync;
+wire HBlank, VBlank;
+wire [3:0] r,g,b;
+
+wire [1:0] scale = status[4:3];
+
+reg ce_vid;
+reg clk_6; // nasty! :)
+always @(negedge clk_vid) begin
+	reg [2:0] div;
+
+	div <= div + 1'd1;
+	ce_vid <= !div;
+	clk_6 <= div[2];
+end
+
+video_mixer #(.HALF_DEPTH(1)) video_mixer
+(
+	.*,
+	.clk_sys(VGA_CLK),
+	.ce_pix(ce_vid),
+	.ce_pix_out(VGA_CE),
+
+	.scanlines({scale == 3, scale == 2}),
+	.scandoubler(scale || forced_scandoubler),
+	.hq2x(scale==1),
+	.mono(0),
+
+	.R(r),
+	.G(g),
+	.B(b)
+);
 
 wire [12:0] audio;
 assign AUDIO_L = {audio, 3'd0};
@@ -224,7 +248,7 @@ end
 target_top moonpatrol
 (
 	.clock_30(clk_sys),
-	.clock_40(clk_vid),
+	.clock_v(clk_6),
 	.clock_3p58(clk_snd),
 
 	.reset(RESET | status[0] | status[6] | buttons[1] | ~initReset_n),
@@ -236,11 +260,11 @@ target_top moonpatrol
 	.VGA_R(r),
 	.VGA_G(g),
 	.VGA_B(b),
-	.VGA_HS(hs),
-	.VGA_VS(vs),
-	.VGA_HBLANK(hblank),
-	.VGA_VBLANK(vblank),
- 
+	.VGA_HS(HSync),
+	.VGA_VS(VSync),
+	.VGA_HBLANK(HBlank),
+	.VGA_VBLANK(VBlank),
+
 	.AUDIO(audio),
 
 	.JOY({m_coin, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right})

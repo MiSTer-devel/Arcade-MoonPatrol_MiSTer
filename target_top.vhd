@@ -15,7 +15,7 @@ entity target_top is
   port
     (
 		clock_30   : in std_logic;
-		clock_40   : in std_logic;
+		clock_v    : in std_logic;
 		clock_3p58 : in std_logic;
 		reset      : in std_logic;
 
@@ -67,7 +67,7 @@ architecture SYN of target_top is
 begin
 
   clkrst_i.clk(0)<=clock_30;
-  clkrst_i.clk(1)<=clock_40;
+  clkrst_i.clk(1)<=clock_v;
 
   clkrst_i.arst <= reset;
   clkrst_i.arst_n <= not clkrst_i.arst;

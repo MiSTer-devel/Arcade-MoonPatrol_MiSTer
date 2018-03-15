@@ -26,13 +26,13 @@ package project_pkg is
 	--constant PACE_VIDEO_H_SIZE				        : integer := 224;
 	--constant PACE_VIDEO_V_SIZE				        : integer := 256; -- why not 240?
 
-  constant PACE_VIDEO_CONTROLLER_TYPE       : PACEVideoController_t := PACE_VIDEO_VGA_800x600_60Hz;
+  constant PACE_VIDEO_CONTROLLER_TYPE       : PACEVideoController_t := PACE_VIDEO_PAL_320x288_50Hz; -- PACE_VIDEO_VGA_800x600_60Hz;
   constant PACE_CLK0_DIVIDE_BY              : natural := 20;
   constant PACE_CLK0_MULTIPLY_BY            : natural := 37;       -- 50*1/1 = 50MHz
   constant PACE_CLK1_DIVIDE_BY              : natural := 25;
   constant PACE_CLK1_MULTIPLY_BY            : natural := 37;  	    -- 50*4/5 = 40MHz
-  constant PACE_VIDEO_H_SCALE       	      : integer := 2;
-  constant PACE_VIDEO_V_SCALE       	      : integer := 2;
+  constant PACE_VIDEO_H_SCALE       	      : integer := 1;
+  constant PACE_VIDEO_V_SCALE       	      : integer := 1;
   constant PACE_VIDEO_H_SYNC_POLARITY       : std_logic := '1';
   constant PACE_VIDEO_V_SYNC_POLARITY       : std_logic := '1';
 
