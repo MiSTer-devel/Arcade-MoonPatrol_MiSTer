@@ -25,6 +25,7 @@ entity target_top is
 
       AUDIO      : out signed(12 downto 0);
 		JOY        : in std_logic_vector(7 downto 0);
+		JOY2        : in std_logic_vector(7 downto 0);
 
       VGA_VBLANK : out std_logic;
       VGA_HBLANK : out std_logic;
@@ -87,8 +88,11 @@ begin
 
   end generate GEN_RESETS;
 
-	inputs_i.jamma_n.coin(1) <= JOY(6);
-	inputs_i.jamma_n.p(1).start <= JOY(5);
+	inputs_i.jamma_n.coin(1) <= JOY(7);
+	inputs_i.jamma_n.p(1).start <= JOY(6);
+
+	inputs_i.jamma_n.coin(2) <= JOY2(7);
+	inputs_i.jamma_n.p(2).start <= JOY2(6);
 	
 	inputs_i.jamma_n.p(1).up <= not JOY(3);
 	inputs_i.jamma_n.p(1).down <= not JOY(2);
@@ -101,13 +105,13 @@ begin
 	inputs_i.jamma_n.p(1).button(4) <= '1';
 	inputs_i.jamma_n.p(1).button(5) <= '1';
 	
-	inputs_i.jamma_n.p(2).up <= not JOY(3);
-	inputs_i.jamma_n.p(2).down <= not JOY(2);
-	inputs_i.jamma_n.p(2).left <= not JOY(1);
-	inputs_i.jamma_n.p(2).right <= not JOY(0);
+	inputs_i.jamma_n.p(2).up <= not JOY2(3);
+	inputs_i.jamma_n.p(2).down <= not JOY2(2);
+	inputs_i.jamma_n.p(2).left <= not JOY2(1);
+	inputs_i.jamma_n.p(2).right <= not JOY2(0);
 	
-	inputs_i.jamma_n.p(2).button(1) <= not JOY(4);
-	inputs_i.jamma_n.p(2).button(2) <= not JOY(5);
+	inputs_i.jamma_n.p(2).button(1) <= not JOY2(4);
+	inputs_i.jamma_n.p(2).button(2) <= not JOY2(5);
 	inputs_i.jamma_n.p(2).button(3) <= '1';
 	inputs_i.jamma_n.p(2).button(4) <= '1';
 	inputs_i.jamma_n.p(2).button(5) <= '1';
@@ -115,7 +119,7 @@ begin
   
 	-- not currently wired to any inputs
 	inputs_i.jamma_n.coin_cnt <= (others => '1');
-	inputs_i.jamma_n.coin(2) <= '1';
+	--inputs_i.jamma_n.coin(2) <= '1';
 	inputs_i.jamma_n.service <= '1';
 	inputs_i.jamma_n.tilt <= '1';
 	inputs_i.jamma_n.test <= '1';

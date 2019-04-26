@@ -87,14 +87,14 @@ assign HDMI_ARY = status[1] ? 8'd9  : 8'd3;
 `include "build_id.v" 
 localparam CONF_STR = {
 	"A.MOONPT;;",
+   "F,rom;", // allow loading of alternate ROMs
 	"-;",
 	"O1,Aspect Ratio,Original,Wide;",
-	"O34,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%;",
+	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"-;",
-	"-;",
-	"T6,Reset;",
-	"J,Fire,Jump,Start;",
-	"V,v1.00.",`BUILD_DATE
+	"R0,Reset;",
+	"J1,Fire,Jump,Start;",
+	"V,v",`BUILD_DATE
 };
 
 ////////////////////   CLOCKS   ///////////////////
@@ -106,9 +106,9 @@ pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(clk_sys),
-	.outclk_1(clk_vid),
-	.outclk_2(clk_snd),
+	.outclk_0(clk_sys), // 30
+	.outclk_1(clk_vid), // 48
+	.outclk_2(clk_snd), // 3.58
 	.locked(pll_locked)
 );
 
@@ -116,6 +116,7 @@ pll pll
 
 wire [31:0] status;
 wire  [1:0] buttons;
+wire        forced_scandoubler;
 
 wire        ioctl_download;
 wire        ioctl_wr;
@@ -127,7 +128,6 @@ wire [10:0] ps2_key;
 wire [15:0] joystick_0, joystick_1;
 wire [15:0] joy = joystick_0 | joystick_1;
 
-wire        forced_scandoubler;
 
 hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 (
@@ -166,6 +166,19 @@ always @(posedge clk_sys) begin
 			'h014: btn_fire       <= pressed; // ctrl
 
 			'h005: btn_one_player <= pressed; // F1
+         'h006: btn_two_players <= pressed; // F2
+
+ // JPAC/IPAC/MAME Style Codes
+			'h016: btn_start_1     <= pressed; // 1
+			'h01E: btn_start_2     <= pressed; // 2
+			'h02E: btn_coin_1      <= pressed; // 5
+			'h036: btn_coin_2      <= pressed; // 6
+			'h02D: btn_up_2        <= pressed; // R
+			'h02B: btn_down_2      <= pressed; // F
+			'h023: btn_left_2      <= pressed; // D
+			'h034: btn_right_2     <= pressed; // G
+			'h01C: btn_fire_2      <= pressed; // A
+			'h01B: btn_jump_2      <= pressed; // S
 		endcase
 	end
 end
@@ -177,6 +190,20 @@ reg btn_left  = 0;
 reg btn_fire  = 0;
 reg btn_jump  = 0;
 reg btn_one_player  = 0;
+reg btn_two_players  = 0;
+
+reg btn_start_1=0;
+reg btn_start_2=0;
+reg btn_coin_1=0;
+reg btn_coin_2=0;
+reg btn_up_2=0;
+reg btn_down_2=0;
+reg btn_left_2=0;
+reg btn_right_2=0;
+reg btn_fire_2=0;
+reg btn_jump_2=0;
+
+
 
 wire m_up     = btn_up   | joy[3];
 wire m_down   = btn_down | joy[2];
@@ -185,65 +212,65 @@ wire m_right  = btn_right| joy[0];
 wire m_fire   = btn_fire | joy[4];
 wire m_jump   = btn_jump | joy[5];
 
-wire m_start1 = btn_one_player  | joy[6];
-wire m_coin   = m_start1;
+wire m_up_2     = btn_up_2    | joy[3];
+wire m_down_2   = btn_down_2  | joy[2];
+wire m_left_2   = btn_left_2  | joy[1];
+wire m_right_2  = btn_right_2 | joy[0];
+wire m_fire_2  = btn_fire_2 |joy[4];
+wire m_jump_2  = btn_jump_2 |joy[5];
 
-assign VGA_CLK  = clk_vid;
-assign HDMI_CLK = VGA_CLK;
-assign HDMI_CE  = VGA_CE;
-assign HDMI_R   = VGA_R;
-assign HDMI_G   = VGA_G;
-assign HDMI_B   = VGA_B;
-assign HDMI_DE  = VGA_DE;
-assign HDMI_HS  = VGA_HS;
-assign HDMI_VS  = VGA_VS;
-assign HDMI_SL  = 0;
+
+
+
+
+wire m_start1 = btn_one_player  | joy[6];
+wire m_start2 = btn_two_players  | joy[6];
+wire m_coin   = m_start1|m_start2;
 
 wire HSync, VSync;
 wire HBlank, VBlank;
 wire [3:0] r,g,b;
 
-wire [1:0] scale = status[4:3];
 
 reg ce_vid;
 reg clk_6; // nasty! :)
+reg clk_24; 
 always @(negedge clk_vid) begin
 	reg [2:0] div;
 
 	div <= div + 1'd1;
 	ce_vid <= !div;
 	clk_6 <= div[2];
+	clk_24 <= ~div[0];
 end
 
-video_mixer #(.HALF_DEPTH(1)) video_mixer
+reg ce_pix;
+always @(posedge clk_vid) begin
+        reg old_clk;
+
+        old_clk <= clk_6;
+        ce_pix <= old_clk & ~clk_6;
+end
+//arcade_fx #(512,12) arcade_video
+arcade_fx #(256,12) arcade_video
 (
-	.*,
-	.clk_sys(VGA_CLK),
-	.ce_pix(ce_vid),
-	.ce_pix_out(VGA_CE),
+        .*,
+        .clk_video(clk_vid),
 
-	.scanlines({scale == 3, scale == 2}),
-	.scandoubler(scale || forced_scandoubler),
-	.hq2x(scale==1),
-	.mono(0),
+        .RGB_in({r,g,b}),
 
-	.R(r),
-	.G(g),
-	.B(b)
+        .fx(status[5:3])
 );
+
+
+
 
 wire [12:0] audio;
 assign AUDIO_L = {audio, 3'd0};
 assign AUDIO_R = AUDIO_L;
 assign AUDIO_S = 1;
 
-reg initReset_n = 0;
-always @(posedge clk_sys) begin
-	reg old_download = 0;
-	
-	old_download <= ioctl_download;
-	if(old_download & ~ioctl_download) initReset_n <= 1;
-end
+
 
 target_top moonpatrol
 (
@@ -251,7 +278,7 @@ target_top moonpatrol
 	.clock_v(clk_6),
 	.clock_3p58(clk_snd),
 
-	.reset(RESET | status[0] | status[6] | buttons[1] | ~initReset_n),
+	.reset(RESET | status[0] |ioctl_download | buttons[1] ),
 
 	.dn_addr(ioctl_addr[15:0]),
 	.dn_data(ioctl_dout),
@@ -267,7 +294,8 @@ target_top moonpatrol
 
 	.AUDIO(audio),
 
-	.JOY({m_coin, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right})
+	.JOY({m_coin|btn_coin_1|btn_coin_2, m_start1|btn_start_1, m_jump, m_fire, m_up, m_down, m_left, m_right}),
+	.JOY2({1'b0, m_start2|btn_start_2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2})
 );
 
 endmodule
