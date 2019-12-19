@@ -1,0 +1,17 @@
+<misterromdescription>
+  <rbf>MoonPatrol</rbf>
+  <rom index="0" zip="mpatrol.zip" md5="b7307dcbec689186de808fa595952f1a">
+        <part name="mpa-1.3m"/>
+        <part name="mpa-2.3l"/>
+        <part name="mpa-3.3k"/>
+        <part name="mpa-4.3j"/>
+        <part name="mpe-5.3e"/>
+        <part name="mpe-4.3f"/>
+        <part name="mpb-2.3m"/>
+        <part name="mpb-1.3n"/>
+        <part name="mpe-3.3h"/>
+        <part name="mpe-2.3k"/>
+        <part name="mpe-1.3l"/>
+        <part name="mp-s1.1a"/>
+  </rom>
+</misterromdescription>
