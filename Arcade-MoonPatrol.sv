@@ -100,11 +100,12 @@ assign HDMI_ARY = status[1] ? 8'd9  : 8'd3;
 `include "build_id.v" 
 localparam CONF_STR = {
 	"A.MOONPT;;",
-	"O1,Aspect Ratio,Original,Wide;",
+	"H0O1,Aspect Ratio,Original,Wide;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"-;",
 	"R0,Reset;",
-	"J1,Fire,Jump,Start;",
+	"J1,Fire,Jump,Start,Coin;",
+	"jn,A,Start,Select,R;",
 	"V,v",`BUILD_DATE
 };
 
@@ -128,6 +129,7 @@ pll pll
 wire [31:0] status;
 wire  [1:0] buttons;
 wire        forced_scandoubler;
+wire        direct_video;
 
 wire        ioctl_download;
 wire        ioctl_wr;
@@ -152,8 +154,10 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
 	.buttons(buttons),
 	.status(status),
+	.status_menumask(direct_video),
 	.forced_scandoubler(forced_scandoubler),
 	.gamma_bus(gamma_bus),
+	.direct_video(direct_video),
 
 	.ioctl_download(ioctl_download),
 	.ioctl_wr(ioctl_wr),
@@ -181,7 +185,7 @@ always @(posedge clk_sys) begin
 			'h014: btn_fire       <= pressed; // ctrl
 
 			'h005: btn_one_player <= pressed; // F1
-         'h006: btn_two_players <= pressed; // F2
+			'h006: btn_two_players <= pressed; // F2
 
  // JPAC/IPAC/MAME Style Codes
 			'h016: btn_start_1     <= pressed; // 1
@@ -240,7 +244,7 @@ wire m_jump_2  = btn_jump_2 |joy[5];
 
 wire m_start1 = btn_one_player  | joy[6];
 wire m_start2 = btn_two_players  | joy[6];
-wire m_coin   = m_start1|m_start2;
+wire m_coin   = m_start1|m_start2 | joy[7];
 
 wire HSync, VSync;
 wire HBlank, VBlank;
@@ -261,11 +265,12 @@ end
 
 reg ce_pix;
 always @(posedge clk_vid) begin
-        reg old_clk;
+        reg [2:0] div;
 
-        old_clk <= clk_6;
-        ce_pix <= old_clk & ~clk_6;
+        div <= div + 1'd1;
+        ce_pix <= !div;
 end
+
 //arcade_fx #(512,12) arcade_video
 arcade_fx #(256,12) arcade_video
 (
