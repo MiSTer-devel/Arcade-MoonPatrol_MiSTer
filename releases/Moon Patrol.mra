@@ -1,17 +1,24 @@
 <misterromdescription>
-  <rbf>MoonPatrol</rbf>
-  <rom index="0" zip="mpatrol.zip" md5="b7307dcbec689186de808fa595952f1a">
-        <part name="mpa-1.3m"/>
-        <part name="mpa-2.3l"/>
-        <part name="mpa-3.3k"/>
-        <part name="mpa-4.3j"/>
-        <part name="mpe-5.3e"/>
-        <part name="mpe-4.3f"/>
-        <part name="mpb-2.3m"/>
-        <part name="mpb-1.3n"/>
-        <part name="mpe-3.3h"/>
-        <part name="mpe-2.3k"/>
-        <part name="mpe-1.3l"/>
-        <part name="mp-s1.1a"/>
-  </rom>
+	<name>Moon Patrol</name>
+	<mameversion>0220</mameversion>
+	<setname>mpatrol</setname>
+	<mratimestamp>20200427161917</mratimestamp>
+	<year>1982</year>
+	<manufacturer>Irem</manufacturer>
+	<category>Space / Moon</category>
+	<rbf>moonpatrol</rbf>
+	<rom index="0" zip="mpatrol.zip" md5="b7307dcbec689186de808fa595952f1a">
+		<part crc="5873a860" name="mpa-1.3m"/>
+		<part crc="f4b85974" name="mpa-2.3l"/>
+		<part crc="2e1a598c" name="mpa-3.3k"/>
+		<part crc="dd05b587" name="mpa-4.3j"/>
+		<part crc="e3ee7f75" name="mpe-5.3e"/>
+		<part crc="cca6d023" name="mpe-4.3f"/>
+		<part crc="707ace5e" name="mpb-2.3m"/>
+		<part crc="9b72133a" name="mpb-1.3n"/>
+		<part crc="a0919392" name="mpe-3.3h"/>
+		<part crc="c7aa1fb0" name="mpe-2.3k"/>
+		<part crc="c46a7f72" name="mpe-1.3l"/>
+		<part crc="561d3108" name="mp-s1.1a"/>
+	</rom>
 </misterromdescription>
