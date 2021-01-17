@@ -46,7 +46,7 @@ begin
   flipData(31 downto 16) <= flip_1 (ctl_i.d(31 downto 16), reg_i.xflip);
   flipData(15 downto 0) <= flip_1 (ctl_i.d(15 downto 0), reg_i.xflip);
   
-	process (clk, clk_ena)
+	process (clk, clk_ena, reg_i)
 
    	variable rowStore : std_logic_vector(31 downto 0);  -- saved row of spt to show during visibile period
 		variable pel      : std_logic_vector(1 downto 0);
