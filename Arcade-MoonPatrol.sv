@@ -93,7 +93,7 @@ assign LED_POWER = 1'b0;
 
 assign {FB_PAL_CLK,  FB_PAL_ADDR, FB_PAL_DOUT, FB_PAL_WR} = '0;
 
-wire [1:0] ar = status[15:14];
+reg [1:0] ar;
 
 assign VIDEO_ARX =  (!ar) ? ( 8'd4) : (ar - 1'd1);
 assign VIDEO_ARY =  (!ar) ? ( 8'd3) : 12'd0;
@@ -130,7 +130,8 @@ pll pll
 
 wire [31:0] status;
 wire  [1:0] buttons;
-wire        forced_scandoubler;
+reg         forced_scandoubler;
+wire        sd;
 wire        direct_video;
 
 wire        ioctl_download;
@@ -156,7 +157,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 	.buttons(buttons),
 	.status(status),
 	.status_menumask(direct_video),
-	.forced_scandoubler(forced_scandoubler),
+	.forced_scandoubler(sd),
 	.gamma_bus(gamma_bus),
 	.direct_video(direct_video),
 
@@ -176,66 +177,58 @@ wire m_right  = joy[0];
 wire m_fire   = joy[4];
 wire m_jump   = joy[5];
 
-wire m_up_2     = joy[3];
-wire m_down_2   = joy[2];
-wire m_left_2   = joy[1];
-wire m_right_2  = joy[0];
-wire m_fire_2  = joy[4];
-wire m_jump_2  = joy[5];
-
-
-
-
+wire m_up_2   = joy[3];
+wire m_down_2 = joy[2];
+wire m_left_2 = joy[1];
+wire m_right_2= joy[0];
+wire m_fire_2 = joy[4];
+wire m_jump_2 = joy[5];
 
 wire m_start1 = joy[6];
 wire m_start2 = joy[6];
 wire m_coin   = joy[7];
 
-wire HSync, VSync;
-wire HBlank, VBlank;
+wire hbl,vbl,hs,vs;
 wire [3:0] r,g,b;
 
-
-reg ce_vid;
 reg clk_6; // nasty! :)
-reg clk_24; 
 always @(negedge clk_vid) begin
 	reg [2:0] div;
 
 	div <= div + 1'd1;
-	ce_vid <= !div;
 	clk_6 <= div[2];
-	clk_24 <= ~div[0];
 end
 
 reg ce_pix;
+reg [11:0] rgb;
+reg HSync,VSync,HBlank,VBlank;
+reg [2:0] fx;
 always @(posedge clk_vid) begin
-        reg [2:0] div;
+	reg [2:0] div;
 
-        div <= div + 1'd1;
-        ce_pix <= !div;
+	div <= div + 1'd1;
+	ce_pix <= !div;
+	rgb <= {r,g,b};
+	HSync <= ~hs;
+	VSync <= ~vs;
+	HBlank <= hbl;
+	VBlank <= vbl;
+	fx <= status[5:3];
+	ar <= status[15:14];
+	forced_scandoubler <= sd;
 end
 
-//arcade_fx #(512,12) arcade_video
 arcade_video #(256,12) arcade_video
 (
-        .*,
-        .clk_video(clk_vid),
-
-        .RGB_in({r,g,b}),
-
-        .fx(status[5:3])
+	.*,
+	.clk_video(clk_vid),
+	.RGB_in(rgb)
 );
-
-
-
 
 wire [12:0] audio;
 assign AUDIO_L = {audio, 3'd0};
 assign AUDIO_R = AUDIO_L;
 assign AUDIO_S = 1;
-
-
 
 target_top moonpatrol
 (
@@ -252,10 +245,10 @@ target_top moonpatrol
 	.VGA_R(r),
 	.VGA_G(g),
 	.VGA_B(b),
-	.VGA_HS(HSync),
-	.VGA_VS(VSync),
-	.VGA_HBLANK(HBlank),
-	.VGA_VBLANK(VBlank),
+	.VGA_HS(hs),
+	.VGA_VS(vs),
+	.VGA_HBLANK(hbl),
+	.VGA_VBLANK(vbl),
 
 	.AUDIO(audio),
 
