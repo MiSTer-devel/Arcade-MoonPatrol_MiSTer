@@ -88,11 +88,11 @@ begin
 
   end generate GEN_RESETS;
 
-	inputs_i.jamma_n.coin(1) <= JOY(7);
-	inputs_i.jamma_n.p(1).start <= JOY(6);
+	inputs_i.jamma_n.coin(1) <= not JOY(7);
+	inputs_i.jamma_n.p(1).start <= not JOY(6);
 
-	inputs_i.jamma_n.coin(2) <= JOY2(7);
-	inputs_i.jamma_n.p(2).start <= JOY2(6);
+	inputs_i.jamma_n.coin(2) <= not JOY2(7);
+	inputs_i.jamma_n.p(2).start <= not JOY2(6);
 	
 	inputs_i.jamma_n.p(1).up <= not JOY(3);
 	inputs_i.jamma_n.p(1).down <= not JOY(2);

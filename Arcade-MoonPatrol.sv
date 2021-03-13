@@ -106,8 +106,8 @@ localparam CONF_STR = {
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"-;",
 	"R0,Reset;",
-	"J1,Fire,Jump,Start,Coin;",
-	"jn,A,B,Start,R;",
+	"J1,Fire,Jump,Start 1P,Start 2P,Coin;",
+	"jn,A,B,Start,Select,R;",
 	"V,v",`BUILD_DATE
 };
 
@@ -185,8 +185,9 @@ wire m_fire_2 = joy[4];
 wire m_jump_2 = joy[5];
 
 wire m_start1 = joy[6];
-wire m_start2 = joy[6];
-wire m_coin   = joy[7];
+wire m_start2 = joy[7];
+wire m_coin1  = joystick_0[8];
+wire m_coin2  = joystick_1[8];
 
 wire hbl,vbl,hs,vs;
 wire [3:0] r,g,b;
@@ -252,8 +253,8 @@ target_top moonpatrol
 
 	.AUDIO(audio),
 
-	.JOY({m_coin, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right}),
-	.JOY2({1'b0, m_start2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2})
+	.JOY({m_coin1, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right}),
+	.JOY2({m_coin2, m_start2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2})
 );
 
 endmodule
