@@ -39,4 +39,5 @@ set_global_assignment -name VHDL_FILE rtl/bitmap3_ctl.vhd
 set_global_assignment -name VHDL_FILE rtl/bitmap2_ctl.vhd
 set_global_assignment -name VHDL_FILE rtl/bitmap1_ctl.vhd
 set_global_assignment -name VHDL_FILE rtl/target_top.vhd
+set_global_assignment -name VERILOG_FILE "rtl/hiscore.v"
 set_global_assignment -name SYSTEMVERILOG_FILE "Arcade-MoonPatrol.sv"

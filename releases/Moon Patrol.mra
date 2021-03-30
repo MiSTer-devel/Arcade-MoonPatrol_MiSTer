@@ -21,4 +21,11 @@
 		<part crc="c46a7f72" name="mpe-1.3l"/>
 		<part crc="561d3108" name="mp-s1.1a"/>
 	</rom>
+	<rom index="3" md5="none">
+		<part>
+		00 00 FF FF 00 FF 00 04 00 04 00 02 00 FF 00 00
+		00 00 E0 08 00 2C 00 00
+		</part>
+	</rom>
+	<nvram index="4" size="44"/>
 </misterromdescription>

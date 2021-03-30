@@ -34,7 +34,16 @@ entity target_top is
       VGA_HS     : out std_logic;
       VGA_R      : out std_logic_vector(3 downto 0);
       VGA_G      : out std_logic_vector(3 downto 0);
-      VGA_B      : out std_logic_vector(3 downto 0)
+      VGA_B      : out std_logic_vector(3 downto 0);
+
+      pause      : in std_logic;
+
+      -- hiscore
+      hs_address  : in  std_logic_vector(10 downto 0);
+      hs_data_out : out std_logic_vector(7 downto 0);
+      hs_data_in  : in  std_logic_vector(7 downto 0);
+      hs_write    : in std_logic
+
   );
 end target_top;
 
@@ -186,7 +195,15 @@ begin
       platform_i   => platform_i,
       platform_o   => platform_o,
       target_i     => target_i,
-      target_o     => target_o
+      target_o     => target_o,
+
+      pause        => pause,
+
+      -- hiscore
+      hs_address   => hs_address,
+      hs_data_out  => hs_data_out,
+      hs_data_in   => hs_data_in,
+      hs_write     => hs_write
     );
 
 	moon_patrol_sound_board : entity work.moon_patrol_sound_board

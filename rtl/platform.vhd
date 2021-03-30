@@ -84,7 +84,15 @@ entity platform is
     platform_i      : in from_PLATFORM_IO_t;
     platform_o      : out to_PLATFORM_IO_t;
     target_i        : in from_TARGET_IO_t;
-    target_o        : out to_TARGET_IO_t
+    target_o        : out to_TARGET_IO_t;
+
+    pause           : in std_logic;
+
+      -- hiscore
+    hs_address      : in  std_logic_vector(10 downto 0);
+    hs_data_out     : out std_logic_vector(7 downto 0);
+    hs_data_in      : in  std_logic_vector(7 downto 0);
+    hs_write        : in std_logic
   );
 
 end platform;
@@ -137,7 +145,7 @@ architecture SYN of platform is
   
   -- other signals
   signal rst_platform   : std_logic;
-  signal pause          : std_logic;
+--  signal pause          : std_logic;
   signal rot_en         : std_logic;
   
   signal spr_addr       : std_logic_vector(11 downto 0);
@@ -155,15 +163,15 @@ begin
   begin
     if rst_sys = '1' then
       rst_platform <= '0';
-      pause <= '0';
+--      pause <= '0';
       rot_en <= '0';  -- to default later
       spec_keys_r := (others => '0');
       layer_en := "11111";
     elsif rising_edge(clk_sys) then
       rst_platform <= spec_keys(0);
-      if spec_keys_r(1) = '0' and spec_keys(1) = '1' then
-        pause <= not pause;
-      end if;
+--      if spec_keys_r(1) = '0' and spec_keys(1) = '1' then
+--        pause <= not pause;
+--      end if;
       if spec_keys_r(2) = '0' and spec_keys(2) = '1' then
         rot_en <= not rot_en;
         if layer_en = "11111" then
@@ -588,7 +596,11 @@ begin
         wren_a				=> wram_wr,
         q_a					=> wram_d_o,
 
-        clock_b			=> clk_sys
+        clock_b			=> clk_sys,
+        address_b			=> hs_address,
+        data_b				=> hs_data_in,
+        wren_b				=> hs_write,
+        q_b					=> hs_data_out
       );
 
     sram_o <= NULL_TO_SRAM;
