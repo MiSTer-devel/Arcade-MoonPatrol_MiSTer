@@ -56,7 +56,7 @@ module emu
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
 
-`ifdef USE_FB
+`ifdef MISTER_FB
 	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
 	// FB_FORMAT:
 	//    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
@@ -74,6 +74,7 @@ module emu
 	input         FB_LL,
 	output        FB_FORCE_BLANK,
 
+`ifdef MISTER_FB_PALETTE
 	// Palette control for 8bit modes.
 	// Ignored for other video modes.
 	output        FB_PAL_CLK,
@@ -81,6 +82,7 @@ module emu
 	output [23:0] FB_PAL_DOUT,
 	input  [23:0] FB_PAL_DIN,
 	output        FB_PAL_WR,
+`endif
 `endif
 
 	output        LED_USER,  // 1 - ON, 0 - OFF.
@@ -112,7 +114,6 @@ module emu
 	output        SD_CS,
 	input         SD_CD,
 
-`ifdef USE_DDRAM
 	//High latency DDR3 RAM interface
 	//Use for non-critical time purposes
 	output        DDRAM_CLK,
@@ -125,9 +126,7 @@ module emu
 	output [63:0] DDRAM_DIN,
 	output  [7:0] DDRAM_BE,
 	output        DDRAM_WE,
-`endif
 
-`ifdef USE_SDRAM
 	//SDRAM interface with lower latency
 	output        SDRAM_CLK,
 	output        SDRAM_CKE,
@@ -140,10 +139,10 @@ module emu
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
 	output        SDRAM_nWE,
-`endif
 
-`ifdef DUAL_SDRAM
+`ifdef MISTER_DUAL_SDRAM
 	//Secondary SDRAM
+	//Set all output SDRAM_* signals to Z ASAP if SDRAM2_EN is 0
 	input         SDRAM2_EN,
 	output        SDRAM2_CLK,
 	output [12:0] SDRAM2_A,
@@ -173,12 +172,15 @@ module emu
 	input         OSD_STATUS
 );
 
-assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
+assign ADC_BUS  = 'Z;
+assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
+assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
+assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
+assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
 assign VGA_F1    = 0;
 assign VGA_SCALER= 0;
-assign USER_OUT  = '1;
 assign LED_USER  = ioctl_download;
 assign LED_DISK  = 1'b0;
 assign LED_POWER = 1'b0;
@@ -196,10 +198,11 @@ localparam CONF_STR = {
 	"A.MOONPT;;",
 	"H0OEF,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"O7,Pause when OSD is open,On,Off;",
 	"-;",
 	"R0,Reset;",
-	"J1,Fire,Jump,Start 1P,Start 2P,Coin;",
-	"jn,A,B,Start,Select,R;",
+	"J1,Fire,Jump,Start 1P,Start 2P,Coin,Pause;",
+	"jn,A,B,Start,Select,R,L;",
 	"V,v",`BUILD_DATE
 };
 
@@ -226,11 +229,13 @@ reg         forced_scandoubler;
 wire        sd;
 wire        direct_video;
 
-wire        ioctl_download;
-wire        ioctl_wr;
-wire [24:0] ioctl_addr;
-wire  [7:0] ioctl_dout;
-
+wire				ioctl_download;
+wire				ioctl_upload;
+wire				ioctl_wr;
+wire	[7:0]		ioctl_index;
+wire	[24:0]	ioctl_addr;
+wire	[7:0]		ioctl_dout;
+wire	[7:0]		ioctl_din;
 
 wire [15:0] joystick_0, joystick_1;
 wire [15:0] joy = joystick_0 | joystick_1;
@@ -254,9 +259,12 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 	.direct_video(direct_video),
 
 	.ioctl_download(ioctl_download),
+	.ioctl_upload(ioctl_upload),
 	.ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_dout),
+	.ioctl_din(ioctl_din),
+	.ioctl_index(ioctl_index),
 
 	.joystick_0(joystick_0),
 	.joystick_1(joystick_1)
@@ -280,9 +288,39 @@ wire m_start1 = joy[6];
 wire m_start2 = joy[7];
 wire m_coin1  = joystick_0[8];
 wire m_coin2  = joystick_1[8];
+wire m_pause  = joy[9];
+
+// PAUSE SYSTEM
+reg				pause;									// Pause signal (active-high)
+reg				pause_toggle = 1'b0;					// User paused (active-high)
+reg [31:0]		pause_timer;							// Time since pause
+reg [31:0]		pause_timer_dim = 31'h11E1A300;	// Time until screen dim (10 seconds @ 48Mhz)
+reg 				dim_video = 1'b0;						// Dim video output (active-high)
+
+// Pause when highscore module requires access, user has pressed pause, or OSD is open and option is set
+assign pause = hs_access | pause_toggle  | (OSD_STATUS && ~status[7]);
+assign dim_video = (pause_timer >= pause_timer_dim) ? 1'b1 : 1'b0;
+
+always @(posedge clk_vid) begin
+	reg old_pause;
+	old_pause <= m_pause;
+	if(~old_pause & m_pause) pause_toggle <= ~pause_toggle;
+	if(pause_toggle)
+	begin
+		if(pause_timer<pause_timer_dim)
+		begin
+			pause_timer <= pause_timer + 1'b1;
+		end
+	end
+	else
+	begin
+		pause_timer <= 1'b0;
+	end
+end
 
 wire hbl,vbl,hs,vs;
 wire [3:0] r,g,b;
+wire [11:0] rgb_out;
 
 reg clk_6; // nasty! :)
 always @(negedge clk_vid) begin
@@ -293,7 +331,6 @@ always @(negedge clk_vid) begin
 end
 
 reg ce_pix;
-reg [11:0] rgb;
 reg HSync,VSync,HBlank,VBlank;
 reg [2:0] fx;
 always @(posedge clk_vid) begin
@@ -301,7 +338,7 @@ always @(posedge clk_vid) begin
 
 	div <= div + 1'd1;
 	ce_pix <= !div;
-	rgb <= {r,g,b};
+	rgb_out <= dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
 	HSync <= ~hs;
 	VSync <= ~vs;
 	HBlank <= hbl;
@@ -315,7 +352,7 @@ arcade_video #(256,12) arcade_video
 (
 	.*,
 	.clk_video(clk_vid),
-	.RGB_in(rgb)
+	.RGB_in(rgb_out)
 );
 
 wire [12:0] audio;
@@ -323,17 +360,20 @@ assign AUDIO_L = {audio, 3'd0};
 assign AUDIO_R = AUDIO_L;
 assign AUDIO_S = 1;
 
+wire rom_download = ioctl_download & !ioctl_index;
+wire reset = RESET | status[0] | ioctl_download | buttons[1];
+
 target_top moonpatrol
 (
 	.clock_30(clk_sys),
 	.clock_v(clk_6),
 	.clock_3p58(clk_snd),
 
-	.reset(RESET | status[0] |ioctl_download | buttons[1] ),
+	.reset(reset),
 
 	.dn_addr(ioctl_addr[15:0]),
 	.dn_data(ioctl_dout),
-	.dn_wr(ioctl_wr),
+	.dn_wr(ioctl_wr & rom_download),
 
 	.VGA_R(r),
 	.VGA_G(g),
@@ -346,7 +386,41 @@ target_top moonpatrol
 	.AUDIO(audio),
 
 	.JOY({m_coin1, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right}),
-	.JOY2({m_coin2, m_start2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2})
+	.JOY2({m_coin2, m_start2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2}),
+
+	.pause(pause),
+
+	.hs_address(hs_address),
+	.hs_data_in(hs_data_in),
+	.hs_data_out(ioctl_din),
+	.hs_write(hs_write)
+);
+
+
+wire [11:0]hs_address;
+wire [7:0]hs_data_in;
+wire hs_write;
+wire hs_access;
+
+hiscore #(
+	.HS_ADDRESSWIDTH(12),
+	.HS_SCOREWIDTH(6),
+	.CFG_ADDRESSWIDTH(1),
+	.CFG_LENGTHWIDTH(2)
+) hi (
+	.clk(clk_sys),
+	.reset(reset),
+	.ioctl_upload(ioctl_upload),
+	.ioctl_download(ioctl_download),
+	.ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+	.ioctl_din(ioctl_din),
+	.ioctl_index(ioctl_index),
+	.ram_address(hs_address),
+	.data_to_ram(hs_data_in),
+	.ram_write(hs_write),
+	.ram_access(hs_access)
 );
 
 endmodule

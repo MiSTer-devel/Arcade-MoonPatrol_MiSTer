@@ -61,7 +61,16 @@ entity PACE is
     platform_i      : in from_PLATFORM_IO_t;
     platform_o      : out to_PLATFORM_IO_t;
     target_i        : in from_TARGET_IO_t;
-    target_o        : out to_TARGET_IO_t
+    target_o        : out to_TARGET_IO_t;
+
+    pause           : in std_logic;
+
+  -- hiscore
+    hs_address      : in  std_logic_vector(10 downto 0);
+    hs_data_out     : out std_logic_vector(7 downto 0);
+    hs_data_in      : in  std_logic_vector(7 downto 0);
+    hs_write        : in std_logic
+
   );
 end entity PACE;
 
@@ -184,7 +193,15 @@ port map
 	platform_i      => platform_i,
 	platform_o      => platform_o,
 	target_i        => target_i,
-	target_o        => target_o
+	target_o        => target_o,
+
+	pause           => pause,
+
+	-- hiscore
+	hs_address      => hs_address,
+	hs_data_out     => hs_data_out,
+	hs_data_in      => hs_data_in,
+	hs_write        => hs_write
 );
 
 graphics_inst : entity work.Graphics                                    
