@@ -36,6 +36,10 @@ entity target_top is
       VGA_G      : out std_logic_vector(3 downto 0);
       VGA_B      : out std_logic_vector(3 downto 0);
 
+      palmode    : in std_logic;
+      hs_offset  : in std_logic_vector(3 downto 0);
+      vs_offset  : in std_logic_vector(3 downto 0);
+
       pause      : in std_logic;
 
       -- hiscore
@@ -136,6 +140,9 @@ begin
     video_i.clk <= clkrst_i.clk(1);	-- by convention
     video_i.clk_ena <= '1';
     video_i.reset <= clkrst_i.rst(1);
+    video_i.palmode <= palmode;
+    video_i.hs_offset <= hs_offset;
+    video_i.vs_offset <= vs_offset;
 
     VGA_R <= video_o.rgb.r(9 downto 6);
     VGA_G <= video_o.rgb.g(9 downto 6);
