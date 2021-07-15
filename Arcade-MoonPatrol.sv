@@ -55,6 +55,7 @@ module emu
 
 	input  [11:0] HDMI_WIDTH,
 	input  [11:0] HDMI_HEIGHT,
+	output        HDMI_FREEZE,
 
 `ifdef MISTER_FB
 	// Use framebuffer in DDRAM (USE_FB=1 in qsf)
@@ -181,6 +182,7 @@ assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DD
 
 assign VGA_F1    = 0;
 assign VGA_SCALER= 0;
+assign HDMI_FREEZE= 0;
 assign LED_USER  = ioctl_download;
 assign LED_DISK  = 1'b0;
 assign LED_POWER = 1'b0;
@@ -233,27 +235,23 @@ reg         forced_scandoubler;
 wire        sd;
 wire        direct_video;
 
-wire				ioctl_download;
-wire				ioctl_upload;
-wire				ioctl_wr;
-wire	[7:0]		ioctl_index;
-wire	[24:0]	ioctl_addr;
-wire	[7:0]		ioctl_dout;
-wire	[7:0]		ioctl_din;
+wire        ioctl_download;
+wire        ioctl_upload;
+wire        ioctl_wr;
+wire  [7:0] ioctl_index;
+wire [24:0] ioctl_addr;
+wire  [7:0] ioctl_dout;
+wire  [7:0] ioctl_din;
 
 wire [15:0] joystick_0, joystick_1;
 wire [15:0] joy = joystick_0 | joystick_1;
 
-
 wire [21:0] gamma_bus;
 
-
-hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
+hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
-
-	.conf_str(CONF_STR),
 
 	.buttons(buttons),
 	.status(status),
