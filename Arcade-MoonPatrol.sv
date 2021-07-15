@@ -196,6 +196,10 @@ assign VIDEO_ARY =  (!ar) ? ( 8'd3) : 12'd0;
 `include "build_id.v" 
 localparam CONF_STR = {
 	"A.MOONPT;;",
+	"OGJ,CRT H adjust,0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"OKN,CRT V adjust,0,+1,+2,+3,+4,+5,+6,+7,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"O6,Video timing,Original,PAL;",
+	"-;",
 	"H0OEF,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"O7,Pause when OSD is open,On,Off;",
@@ -334,13 +338,12 @@ reg ce_pix;
 reg HSync,VSync,HBlank,VBlank;
 reg [2:0] fx;
 always @(posedge clk_vid) begin
-	reg [2:0] div;
-
-	div <= div + 1'd1;
-	ce_pix <= !div;
+	reg old_clk_v;
+	old_clk_v <= clk_6;
+	ce_pix <= (old_clk_v & ~clk_6);
 	rgb_out <= dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
-	HSync <= ~hs;
-	VSync <= ~vs;
+	HSync <= hs;
+	VSync <= vs;
 	HBlank <= hbl;
 	VBlank <= vbl;
 	fx <= status[5:3];
@@ -363,6 +366,10 @@ assign AUDIO_S = 1;
 wire rom_download = ioctl_download & !ioctl_index;
 wire reset = RESET | status[0] | ioctl_download | buttons[1];
 
+wire palmode = status[6];
+wire [3:0] hs_offset = status[19:16];
+wire [3:0] vs_offset = status[23:20];
+
 target_top moonpatrol
 (
 	.clock_30(clk_sys),
@@ -382,6 +389,10 @@ target_top moonpatrol
 	.VGA_VS(vs),
 	.VGA_HBLANK(hbl),
 	.VGA_VBLANK(vbl),
+
+	.palmode(palmode),
+	.hs_offset(hs_offset),
+	.vs_offset(vs_offset),
 
 	.AUDIO(audio),
 

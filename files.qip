@@ -14,7 +14,7 @@ set_global_assignment -name VHDL_FILE rtl/moon_patrol_sound_board.vhd
 set_global_assignment -name VHDL_FILE rtl/video_mixer.vhd
 set_global_assignment -name VHDL_FILE rtl/video_controller_pkg_body.vhd
 set_global_assignment -name VHDL_FILE rtl/video_controller_pkg.vhd
-set_global_assignment -name VHDL_FILE rtl/video_controller.vhd
+set_global_assignment -name VHDL_FILE rtl/iremm52_video_controller.vhd
 set_global_assignment -name VHDL_FILE rtl/tilemapctl_e.vhd
 set_global_assignment -name VHDL_FILE rtl/tilemapctl.vhd
 set_global_assignment -name VHDL_FILE rtl/target_pkg.vhd
