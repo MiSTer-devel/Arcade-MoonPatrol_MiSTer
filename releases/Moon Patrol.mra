@@ -47,7 +47,7 @@
 	<rom index="2"></rom>
 	<rom index="3" md5="none">
 		<part>
-		00 00 FF FF 00 FF 00 04 00 04 00 02 00 FF 00 00
+		00 00 FF FF 00 FF 00 04 00 04 00 02 00 FF 02 00
 		00 00 E0 08 00 2C 00 00
 		</part>
 	</rom>
