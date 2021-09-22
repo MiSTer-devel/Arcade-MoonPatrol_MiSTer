@@ -173,21 +173,20 @@ module emu
 	input         OSD_STATUS
 );
 
-assign ADC_BUS  = 'Z;
-assign USER_OUT = '1;
-assign {UART_RTS, UART_TXD, UART_DTR} = 0;
-assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
 assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
+assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
+assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 
 assign VGA_F1    = 0;
 assign VGA_SCALER= 0;
-assign HDMI_FREEZE= 0;
+assign USER_OUT  = '1;
 assign LED_USER  = ioctl_download;
-assign LED_DISK  = 1'b0;
-assign LED_POWER = 1'b0;
+assign LED_DISK  = 0;
+assign LED_POWER = 0;
 assign BUTTONS   = 0;
 assign AUDIO_MIX = 0;
+assign HDMI_FREEZE = 0;
 
 reg [1:0] ar;
 
@@ -204,7 +203,10 @@ localparam CONF_STR = {
 	"-;",
 	"H0OEF,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
-	"O7,Pause when OSD is open,On,Off;",
+	"H1OR,Autosave Hiscores,Off,On;",
+	"P1,Pause options;",
+	"P1OP,Pause when OSD is open,On,Off;",
+	"P1OQ,Dim video after 10s,On,Off;",
 	"-;",
 	"R0,Reset;",
 	"J1,Fire,Jump,Start 1P,Start 2P,Coin,Pause;",
@@ -237,6 +239,7 @@ wire        direct_video;
 
 wire        ioctl_download;
 wire        ioctl_upload;
+wire        ioctl_upload_req;
 wire        ioctl_wr;
 wire  [7:0] ioctl_index;
 wire [24:0] ioctl_addr;
@@ -255,13 +258,14 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask(direct_video),
+	.status_menumask({~hs_configured,direct_video}),
 	.forced_scandoubler(sd),
 	.gamma_bus(gamma_bus),
 	.direct_video(direct_video),
 
 	.ioctl_download(ioctl_download),
 	.ioctl_upload(ioctl_upload),
+	.ioctl_upload_req(ioctl_upload_req),
 	.ioctl_wr(ioctl_wr),
 	.ioctl_addr(ioctl_addr),
 	.ioctl_dout(ioctl_dout),
@@ -293,36 +297,20 @@ wire m_coin2  = joystick_1[8];
 wire m_pause  = joy[9];
 
 // PAUSE SYSTEM
-reg				pause;									// Pause signal (active-high)
-reg				pause_toggle = 1'b0;					// User paused (active-high)
-reg [31:0]		pause_timer;							// Time since pause
-reg [31:0]		pause_timer_dim = 31'h11E1A300;	// Time until screen dim (10 seconds @ 48Mhz)
-reg 				dim_video = 1'b0;						// Dim video output (active-high)
-
-// Pause when highscore module requires access, user has pressed pause, or OSD is open and option is set
-assign pause = hs_access | pause_toggle  | (OSD_STATUS && ~status[7]);
-assign dim_video = (pause_timer >= pause_timer_dim) ? 1'b1 : 1'b0;
-
-always @(posedge clk_vid) begin
-	reg old_pause;
-	old_pause <= m_pause;
-	if(~old_pause & m_pause) pause_toggle <= ~pause_toggle;
-	if(pause_toggle)
-	begin
-		if(pause_timer<pause_timer_dim)
-		begin
-			pause_timer <= pause_timer + 1'b1;
-		end
-	end
-	else
-	begin
-		pause_timer <= 1'b0;
-	end
-end
+wire				pause_cpu;
+wire 				dim_video;
+wire [11:0]		rgb_out;
+pause #(4,4,4,30) pause (
+	.*,
+	.user_button(m_pause),
+	.rgb_out(),
+	.dim_video(dim_video),
+	.pause_request(hs_pause),
+	.options(~status[26:25])
+);
 
 wire hbl,vbl,hs,vs;
 wire [3:0] r,g,b;
-wire [11:0] rgb_out;
 
 reg clk_6; // nasty! :)
 always @(negedge clk_vid) begin
@@ -332,6 +320,8 @@ always @(negedge clk_vid) begin
 	clk_6 <= div[2];
 end
 
+assign rgb_out = dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
+
 reg ce_pix;
 reg HSync,VSync,HBlank,VBlank;
 reg [2:0] fx;
@@ -339,7 +329,6 @@ always @(posedge clk_vid) begin
 	reg old_clk_v;
 	old_clk_v <= clk_6;
 	ce_pix <= (old_clk_v & ~clk_6);
-	rgb_out <= dim_video ? {r >> 1,g >> 1, b >> 1} : {r,g,b};
 	HSync <= hs;
 	VSync <= vs;
 	HBlank <= hbl;
@@ -397,19 +386,22 @@ target_top moonpatrol
 	.JOY({m_coin1, m_start1, m_jump, m_fire, m_up, m_down, m_left, m_right}),
 	.JOY2({m_coin2, m_start2, m_jump_2, m_fire_2, m_up_2, m_down_2, m_left_2, m_right_2}),
 
-	.pause(pause),
+	.pause(pause_cpu),
 
 	.hs_address(hs_address),
 	.hs_data_in(hs_data_in),
-	.hs_data_out(ioctl_din),
-	.hs_write(hs_write)
+	.hs_data_out(hs_data_out),
+	.hs_write(hs_write_enable)
 );
 
-
+// HISCORE SYSTEM
+// --------------
 wire [11:0]hs_address;
-wire [7:0]hs_data_in;
-wire hs_write;
-wire hs_access;
+wire [7:0] hs_data_in;
+wire [7:0] hs_data_out;
+wire hs_write_enable;
+wire hs_pause;
+wire hs_configured;
 
 hiscore #(
 	.HS_ADDRESSWIDTH(12),
@@ -417,19 +409,20 @@ hiscore #(
 	.CFG_ADDRESSWIDTH(1),
 	.CFG_LENGTHWIDTH(2)
 ) hi (
+	.*,
 	.clk(clk_sys),
-	.reset(reset),
-	.ioctl_upload(ioctl_upload),
-	.ioctl_download(ioctl_download),
-	.ioctl_wr(ioctl_wr),
-	.ioctl_addr(ioctl_addr),
-	.ioctl_dout(ioctl_dout),
-	.ioctl_din(ioctl_din),
-	.ioctl_index(ioctl_index),
+	.paused(pause_cpu),
+	.autosave(status[27]),
 	.ram_address(hs_address),
+	.data_from_ram(hs_data_out),
 	.data_to_ram(hs_data_in),
-	.ram_write(hs_write),
-	.ram_access(hs_access)
+	.data_from_hps(ioctl_dout),
+	.data_to_hps(ioctl_din),
+	.ram_write(hs_write_enable),
+	.ram_intent_read(),
+	.ram_intent_write(),
+	.pause_cpu(hs_pause),
+	.configured(hs_configured)
 );
 
 endmodule
