@@ -11,8 +11,27 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
+-- Version 1.0 -- 24/10/2021 --
+--   cleaning around clock init, irq and adpcm computation (no behaviour change)
+--
+--   work around MSM5205 settings :
+--     Sound CPU should not write '11' to S1-S2 (prohibited) but it did sometime 
+--     around FCF9. Currently I don't know if it write the good value at the
+--     wrong place or the wrong value at the good place. Writing '11' to S1-S2
+--     stops NMI and then sound machine freezes waiting for next NMI.
+--
+--     It may have something to do with NMI arising when PC = FCE1 pushb or
+--     FCE2 pusha.
+--
+--     Or maybe something to do with main CPU board protection. MAME claims that 
+--     reading 8800 should return Z80's DE register value but PACE do something
+--     that seems to be (very) different.
+--
+--     Anyway, current work around => just do the same for S1-S2 = '11' or '00'.
+--     So sound machine won't freeze. 
+--
 -- Version 0.0 -- 24/11/2017 -- 
---		    initial version
+--	  initial version
 ---------------------------------------------------------------------------------
 
 library ieee;
@@ -132,8 +151,12 @@ dbg_cpu_addr <= cpu_addr;
 -- clock divider
 process (reset, clock_3p58)
 begin
-	if rising_edge(clock_3p58) then
-		clock_div  <= clock_div + '1';
+	if reset = '1' then
+		clock_div  <= (others => '0');	
+	else
+		if rising_edge(clock_3p58) then
+			clock_div  <= clock_div + '1';
+		end if;
 	end if;
 end process;
 
@@ -163,21 +186,17 @@ cpu_di <=
 	rom_do when rom_cs = '1' else X"55";
 
 -- irq to cpu
-process (reset, clock_div(0))
-	variable select_sound_7r : std_logic;
+process (reset, clock_3p58)
 begin
-	if reset='1' then
+	if (reset='1') or (irqraz_we = '1') then
 		cpu_irq  <= '0';
-		select_sound_7r := '0';
+		select_sound_7r <= '1';
 	else 
-		if rising_edge(clock_div(0)) then
+		if rising_edge(clock_3p58) then
+			select_sound_7r <= select_sound(7);
 			if select_sound_7r = '0' and select_sound(7) = '1' then
 				cpu_irq  <= '1';
 			end if;
-			if irqraz_we = '1' then
-				cpu_irq  <= '0';			
-			end if;
-			select_sound_7r := select_sound(7);
 		end if;
 	end if;
 end process;
@@ -245,10 +264,11 @@ begin
 			clock_div_a := 0;
 			
 			case ay1_port_b_do(3 downto 2) is				
-			when "00" => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
+--			when "00" => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
 			when "01" => if clock_div_b = 2 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 8kHz
 			when "10" => if clock_div_b = 3 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 6kHz
-			when others => null;
+			when others => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
+--			when others => null;
 			end case;
 							
 			if clock_div_b = 0 then adpcm_vclk <= '1'; else adpcm_vclk <= '0'; end if;
@@ -282,13 +302,17 @@ begin
 			
 				adpcm_signal_n := adpcm_signal + dn;
 			
-				if step_n > 48 then step := 48; else step := step_n; end if;
-				if step_n < 0  then step := 0;  else step := step_n; end if;
+				if      step_n > 48 then step := 48;
+			   else if step_n < 0  then step := 0;  
+				else                     step := step_n;
+				end if;end if;
 				
 			when 8 =>
 			
-				if adpcm_signal_n >  2040 then adpcm_signal <=  2040; else adpcm_signal <= adpcm_signal_n; end if;
-				if adpcm_signal_n < -2040 then adpcm_signal <= -2040; else adpcm_signal <= adpcm_signal_n; end if;
+				if      adpcm_signal_n >  2040 then adpcm_signal <=  2040;
+				else if adpcm_signal_n < -2040 then adpcm_signal <= -2040; 
+				else                                adpcm_signal <= adpcm_signal_n;
+				end if;end if;
 			
 			when others => null;
 			
