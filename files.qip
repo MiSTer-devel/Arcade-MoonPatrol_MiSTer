@@ -9,7 +9,7 @@ set_global_assignment -name VHDL_FILE rtl/cpu/T80_ALU.vhd
 set_global_assignment -name VHDL_FILE rtl/cpu/T80.vhd
 set_global_assignment -name VHDL_FILE rtl/dpram.vhd
 set_global_assignment -name VHDL_FILE rtl/ym_2149_linmix.vhd
-set_global_assignment -name VHDL_FILE rtl/cpu68.vhd
+set_global_assignment -name VHDL_FILE rtl/cpu68_GS_march_2020_falling_edge.vhd
 set_global_assignment -name VHDL_FILE rtl/moon_patrol_sound_board.vhd
 set_global_assignment -name VHDL_FILE rtl/video_mixer.vhd
 set_global_assignment -name VHDL_FILE rtl/video_controller_pkg_body.vhd

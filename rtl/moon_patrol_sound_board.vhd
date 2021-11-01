@@ -11,6 +11,14 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
+-- Version 1.1 -- 01/11/2021 --
+--
+--   - Thanks to Gyurco who fixed NMI problem of cpu68. Fixed CPU doesn't write
+--   '11' to MSM5205's S1-S2 anymore. Then previous MSM5205 behaviour is
+--   restored. 
+--
+--   - Enhance sound trigger capture and interface with cpu (IRQ).
+--
 -- Version 1.0 -- 24/10/2021 --
 --   cleaning around clock init, irq and adpcm computation (no behaviour change)
 --
@@ -67,6 +75,7 @@ architecture struct of moon_patrol_sound_board is
  signal cpu_do     : std_logic_vector( 7 downto 0);
  signal cpu_rw     : std_logic;
  signal cpu_irq    : std_logic;
+ signal cpu_irq_req: std_logic;
  signal cpu_nmi    : std_logic;
  
  signal irqraz_cs : std_logic;
@@ -189,15 +198,22 @@ cpu_di <=
 process (reset, clock_3p58)
 begin
 	if (reset='1') or (irqraz_we = '1') then
-		cpu_irq  <= '0';
+		cpu_irq_req <= '0';
 		select_sound_7r <= '1';
 	else 
 		if rising_edge(clock_3p58) then
 			select_sound_7r <= select_sound(7);
 			if select_sound_7r = '0' and select_sound(7) = '1' then
-				cpu_irq  <= '1';
+				cpu_irq_req  <= '1';
 			end if;
 		end if;
+	end if;
+end process;
+
+process (reset, clock_div(0))
+begin
+	if rising_edge(clock_div(0)) then
+			cpu_irq <= cpu_irq_req;
 	end if;
 end process;
 
@@ -264,11 +280,11 @@ begin
 			clock_div_a := 0;
 			
 			case ay1_port_b_do(3 downto 2) is				
---			when "00" => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
+			when "00" => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
 			when "01" => if clock_div_b = 2 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 8kHz
 			when "10" => if clock_div_b = 3 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 6kHz
-			when others => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
---			when others => null;
+--			when others => if clock_div_b = 5 then clock_div_b := 0; else clock_div_b := clock_div_b +1; end if;  -- 4kHz
+			when others => null;
 			end case;
 							
 			if clock_div_b = 0 then adpcm_vclk <= '1'; else adpcm_vclk <= '0'; end if;
@@ -329,7 +345,7 @@ audio_out <= resize(to_signed(adpcm_signal,12),13) + signed("000"&ay1_audio&"00"
 -- microprocessor 6800/01/03
 main_cpu : entity work.cpu68
 port map(	
-	clk      => cpu_clock,-- E clock input (falling edge)
+	clk      => cpu_clock,-- E clock input (falling edge - JK cpu68 or GS cpu68 falling edge)
 	rst      => reset,    -- reset input (active high)
 	rw       => cpu_rw,   -- read not write output
 	vma      => open,     -- valid memory address (active high)
