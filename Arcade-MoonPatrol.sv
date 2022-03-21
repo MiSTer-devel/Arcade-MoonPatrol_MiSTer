@@ -290,7 +290,7 @@ wire m_right_2= joy[0];
 wire m_fire_2 = joy[4];
 wire m_jump_2 = joy[5];
 
-wire m_start1 = joy[6];
+wire m_start1 = joystick_0[6]; // P1 start only available on 1st input device
 wire m_start2 = joy[7];
 wire m_coin1  = joystick_0[8];
 wire m_coin2  = joystick_1[8];
