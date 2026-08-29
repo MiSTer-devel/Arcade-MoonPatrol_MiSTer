@@ -11,11 +11,19 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
+-- Version 1.2 -- 28/08/2026 --
+--
+--   - Keep the sound clock divider running during reset and extend reset in
+--   the 3.58 MHz domain. The synchronous cpu68 reset is now guaranteed to see
+--   a falling cpu_clock edge instead of depending on the divider phase.
+--
+--   - Reset the IRQ output and ADPCM decoder state deterministically.
+--
 -- Version 1.1 -- 01/11/2021 --
 --
 --   - Thanks to Gyurco who fixed NMI problem of cpu68. Fixed CPU doesn't write
 --   '11' to MSM5205's S1-S2 anymore. Then previous MSM5205 behaviour is
---   restored. 
+--   restored.
 --
 --   - Enhance sound trigger capture and interface with cpu (IRQ).
 --
@@ -66,8 +74,10 @@ end moon_patrol_sound_board;
 
 architecture struct of moon_patrol_sound_board is
 
- signal reset_n   : std_logic;
- signal clock_div : std_logic_vector(3 downto 0);
+ signal sound_reset : std_logic;
+ signal reset_n     : std_logic;
+ signal reset_pipe  : std_logic_vector(7 downto 0) := (others => '1');
+ signal clock_div   : std_logic_vector(3 downto 0) := (others => '0');
 
  signal cpu_clock  : std_logic;
  signal cpu_addr   : std_logic_vector(15 downto 0);
@@ -153,19 +163,32 @@ architecture struct of moon_patrol_sound_board is
  
 begin
 
-reset_n   <= not reset;
+-- The cpu68 reset is synchronous to the falling edge of cpu_clock.  Do not
+-- stop the divider while reset is active: doing so can hold cpu_clock low and
+-- prevent the CPU from ever seeing reset.  Assert reset asynchronously, then
+-- keep it active for several clock_3p58 cycles after the external reset is
+-- released so every divided-clock block observes it deterministically. Shift
+-- on the falling edge, safely between the divider's rising-edge transitions.
+process (clock_3p58, reset)
+begin
+	if reset = '1' then
+		reset_pipe <= (others => '1');
+	elsif falling_edge(clock_3p58) then
+		reset_pipe <= reset_pipe(reset_pipe'left-1 downto 0) & '0';
+	end if;
+end process;
+
+sound_reset <= reset_pipe(reset_pipe'left);
+reset_n     <= not sound_reset;
 
 dbg_cpu_addr <= cpu_addr;
 
--- clock divider
-process (reset, clock_3p58)
+-- Free-running clock divider. The sound CPU must continue receiving clock
+-- edges while sound_reset is asserted.
+process (clock_3p58)
 begin
-	if reset = '1' then
-		clock_div  <= (others => '0');	
-	else
-		if rising_edge(clock_3p58) then
-			clock_div  <= clock_div + '1';
-		end if;
+	if rising_edge(clock_3p58) then
+		clock_div <= clock_div + '1';
 	end if;
 end process;
 
@@ -195,13 +218,16 @@ cpu_di <=
 	rom_do when rom_cs = '1' else X"55";
 
 -- irq to cpu
-process (reset, clock_3p58)
+process (sound_reset, clock_3p58)
 begin
-	if (reset='1') or (irqraz_we = '1') then
+	if sound_reset = '1' then
 		cpu_irq_req <= '0';
 		select_sound_7r <= '1';
-	else 
-		if rising_edge(clock_3p58) then
+	elsif rising_edge(clock_3p58) then
+		if irqraz_we = '1' then
+			cpu_irq_req <= '0';
+			select_sound_7r <= '1';
+		else
 			select_sound_7r <= select_sound(7);
 			if select_sound_7r = '0' and select_sound(7) = '1' then
 				cpu_irq_req  <= '1';
@@ -210,10 +236,12 @@ begin
 	end if;
 end process;
 
-process (reset, clock_div(0))
+process (sound_reset, clock_div(0))
 begin
-	if rising_edge(clock_div(0)) then
-			cpu_irq <= cpu_irq_req;
+	if sound_reset = '1' then
+		cpu_irq <= '0';
+	elsif rising_edge(clock_div(0)) then
+		cpu_irq <= cpu_irq_req;
 	end if;
 end process;
 
@@ -221,9 +249,9 @@ end process;
 cpu_nmi <= adpcm_vclk;
 
 -- 6803 ports 1 and 2 (only)
-process (reset, clock_div(0))
+process (sound_reset, clock_div(0))
 begin
-	if reset='1' then
+	if sound_reset='1' then
 		port1_ddr  <= (others=>'0');  -- port1 set as input
 		port1_data <= (others=>'0');  -- port1 data set to 0
 		port2_ddr  <= ("11100000");   -- port2 bit 7 to 5 should always remain output to simulate mode data
@@ -252,9 +280,9 @@ port2_bus <= X"FF";
 
 
 -- latch adpcm (msm5205) data in
-process (reset, clock_div(0))
+process (sound_reset, clock_div(0))
 begin
-	if reset='1' then
+	if sound_reset='1' then
 		adpcm_0_di <= (others=>'0');
 	else 
 		if rising_edge(clock_div(0)) then
@@ -266,7 +294,7 @@ begin
 end process;
 
 -- adcpm clocks and computation -- make 24kHz and vclk 8/6/4kHz
-adpcm_clocks : process(clock_3p58, ay1_port_b_do)
+adpcm_clocks : process(clock_3p58, sound_reset)
 	variable clock_div_a : integer range 0 to 148 := 0;
 	variable clock_div_b : integer range 0 to 5 := 0;
 	variable step   : integer range  0 to 48;
@@ -275,7 +303,17 @@ adpcm_clocks : process(clock_3p58, ay1_port_b_do)
 	variable dn : integer range -32768 to 32767;
 	variable adpcm_signal_n : integer range -32768 to 32767;
 begin
-	if rising_edge(clock_3p58) then
+	if sound_reset = '1' then
+		clock_div_a := 0;
+		clock_div_b := 0;
+		step := 0;
+		step_n := 0;
+		sz := 0;
+		dn := 0;
+		adpcm_signal_n := 0;
+		adpcm_vclk <= '0';
+		adpcm_signal <= 0;
+	elsif rising_edge(clock_3p58) then
 		if clock_div_a = 148 then   -- 24kHz
 			clock_div_a := 0;
 			
@@ -346,7 +384,7 @@ audio_out <= resize(to_signed(adpcm_signal,12),13) + signed("000"&ay1_audio&"00"
 main_cpu : entity work.cpu68
 port map(	
 	clk      => cpu_clock,-- E clock input (falling edge - JK cpu68 or GS cpu68 falling edge)
-	rst      => reset,    -- reset input (active high)
+	rst      => sound_reset, -- reset input (active high)
 	rw       => cpu_rw,   -- read not write output
 	vma      => open,     -- valid memory address (active high)
 	address  => cpu_addr, -- address bus output
