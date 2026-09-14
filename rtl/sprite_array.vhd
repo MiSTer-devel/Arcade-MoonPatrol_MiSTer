@@ -70,6 +70,7 @@ begin
       -- make ISE 9.2.03i happy...
 			ld_r(ld_r'left) <= '1';
 			ld_r(ld_r'left-1 downto 0) <= (others => '0');
+			row_a <= (others => '0');
 			i := 0;
 		elsif rising_edge(clk) and clk_ena = '1' then
 			ld_r <= ld_r(ld_r'left-1 downto 0) & ld_r(ld_r'left);
@@ -92,11 +93,15 @@ begin
 	-- - determines which sprite pixel (if any) is to be displayed
 	-- We can use a clocked process here because the tilemap
 	-- output is 1 clock behind at this point
-	process (clk, clk_ena)
+	process (clk, reset)
 		variable spr_on_v 	: std_logic := '0';
 		variable spr_pri_v 	: std_logic := '0';
 	begin
-		if rising_edge(clk) and clk_ena = '1' then
+		if reset = '1' then
+			spr_on_v := '0';
+			spr_pri_v := '0';
+			rgb <= NULL_RGB;
+		elsif rising_edge(clk) and clk_ena = '1' then
 			spr_on_v := '0';
 			spr_pri_v := '0';
 			for i in 0 to N_SPRITES-1 loop
@@ -145,6 +150,8 @@ begin
 			)
 			port map
 			(
+				reset       => reset,
+
         -- sprite registers
         reg_i       => reg_o(i),
         
@@ -161,4 +168,3 @@ begin
 	end generate GEN_REGS;
 	
 end SYN;
-

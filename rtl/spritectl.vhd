@@ -18,6 +18,8 @@ entity spritectl is
 	);
 	port               
 	(
+    reset       : in std_logic;
+
     -- sprite registers
     reg_i       : in from_SPRITE_REG_t;
     
@@ -46,12 +48,13 @@ begin
   flipData(31 downto 16) <= flip_1 (ctl_i.d(31 downto 16), reg_i.xflip);
   flipData(15 downto 0) <= flip_1 (ctl_i.d(15 downto 0), reg_i.xflip);
   
-	process (clk, clk_ena, reg_i)
+	process (clk, reset, reg_i)
 
    	variable rowStore : std_logic_vector(31 downto 0);  -- saved row of spt to show during visibile period
 		variable pel      : std_logic_vector(1 downto 0);
     variable x        : unsigned(video_ctl.x'range);
     variable y        : unsigned(video_ctl.y'range);
+    variable yDelta   : unsigned(video_ctl.y'range);
     variable yMat     : boolean;      -- raster is between first and last line of sprite
     variable xMat     : boolean;      -- raster in between left edge and end of line
 
@@ -68,7 +71,18 @@ begin
     
   begin
 
-		if rising_edge(clk) then
+		if reset = '1' then
+			rowStore := (others => '0');
+			pel := (others => '0');
+			x := (others => '0');
+			y := (others => '0');
+			yDelta := (others => '0');
+			yMat := false;
+			xMat := false;
+			rowCount := (others => '0');
+			rgb <= NULL_RGB;
+			ctl_o.set <= '0';
+		elsif rising_edge(clk) then
       if clk_ena = '1' then
 
         x := '1'&x"00" + unsigned(reg_i.x) + PACE_VIDEO_PIPELINE_DELAY - 3;
@@ -77,18 +91,17 @@ begin
         if video_ctl.hblank = '1' then
 
           xMat := false;
-          -- stop sprites wrapping from bottom of screen
-          if y = 0 then
-            yMat := false;
-          end if;
-          
-          if y = unsigned(video_ctl.y) then
-            -- start counting sprite row
-            rowCount := (others => '0');
-            yMat := true;
-          elsif row = "10000" then
-            yMat := false;				
-          end if;
+			-- Derive the row independently on every scanline.  The old
+			-- stateful counter could lose phase when the game moved or reused
+			-- a sprite register, leaving a stale row in otherwise blank slots.
+			yDelta := unsigned(video_ctl.y) - y;
+			if yDelta < 16 then
+			  rowCount := resize(yDelta, rowCount'length);
+			  yMat := true;
+			else
+			  rowCount := (others => '0');
+			  yMat := false;
+			end if;
 
           -- sprites not visible before row 16				
           if ctl_i.ld = '1' then
@@ -104,8 +117,6 @@ begin
         if video_ctl.stb = '1' then
       
           if x = unsigned(video_ctl.x) then
-            -- count up at left edge of sprite
-            rowCount := rowCount + 1;
             -- start of sprite
             --if unsigned(x) /= 0 and unsigned(x) < 240 then
               xMat := true;
