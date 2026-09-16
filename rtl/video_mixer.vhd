@@ -37,8 +37,10 @@ begin
       bg_rgb <= bitmap_ctl_o(1).rgb when bitmap_ctl_o(1).set = '1' else
                 bitmap_ctl_o(2).rgb;
     elsif PACE_VIDEO_NUM_BITMAPS = 3 generate
-      bg_rgb <= bitmap_ctl_o(1).rgb when bitmap_ctl_o(1).set = '1' else
-                bitmap_ctl_o(2).rgb when bitmap_ctl_o(2).set = '1' else
+      -- The hills and city share control/position hardware. If both are
+      -- selected, the original M52 priority chain chooses the hills.
+      bg_rgb <= bitmap_ctl_o(2).rgb when bitmap_ctl_o(2).set = '1' else
+                bitmap_ctl_o(1).rgb when bitmap_ctl_o(1).set = '1' else
                 bitmap_ctl_o(3).rgb when bitmap_ctl_o(3).set = '1' else
                 (others => (others => '0'));
     else generate

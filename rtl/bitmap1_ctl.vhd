@@ -34,6 +34,7 @@ begin
 
   process (clk, reset)
     variable y_r          : std_logic_vector(y'range);
+    variable bg_active    : boolean;
     -- ensure bgy won't wrap on the screen
     variable bgy          : unsigned(7 downto 0);
     -- must wrap at 256!!!
@@ -45,6 +46,11 @@ begin
   begin
 		if reset = '1' then
       y_r := (others => '0');
+			bgy := (others => '1');
+			bgx := (others => '0');
+			bitmap_d_r := (others => '0');
+			bg_active := false;
+			ctl_o.set <= '0';
 		elsif rising_edge (clk) then
       -- default
       ctl_o.set <= '0';
@@ -54,20 +60,22 @@ begin
         -- handle line changes
         if vblank = '1' then
           bgy := (others => '1');
+          bg_active := false;
         elsif y /= y_r then
           if y(7 downto 0) = m52_bg1ypos then
             bgy := (others => '0');
+            bg_active := true;
           else
             -- need to invert to scroll in the right direction
             bgx := not unsigned(m52_bg1xpos);
-            if bgy < 63 then
+            if bgy < 255 then
               bgy := bgy + 1;
             end if;
           end if;
         end if;
         -- bit 5 is background enable, bit 2 is layer enable
         if m52_bgcontrol(5) = '0' and m52_bgcontrol(2) = '0' and graphics_i.bit8(0)(0) = '1' then
-          if bgy < 64 then
+          if bg_active and bgy < 64 then
             ctl_o.a(5 downto 0) <= std_logic_vector(bgx(7 downto 2));
             if hblank = '0' then
               if bgx(1 downto 0) = "01" then
@@ -88,6 +96,16 @@ begin
                 ctl_o.set <= '1';
               end if;
             end if; -- hblank='0'
+          elsif bg_active then
+            -- The 4 KiB image ROM holds the upper 64 lines. On the
+            -- original board the undumped lower half reads as all ones,
+            -- producing the solid colour below each background image.
+            pal_i := "10011";
+            pal_rgb := bg_pal(to_integer(unsigned(pal_i)));
+            ctl_o.rgb.r <= pal_rgb(0) & "00";
+            ctl_o.rgb.g <= pal_rgb(1) & "00";
+            ctl_o.rgb.b <= pal_rgb(2) & "00";
+            ctl_o.set <= '1';
           end if; -- bgy<64
         end if; -- m52_bgcontrol
         y_r := y;
